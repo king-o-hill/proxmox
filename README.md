@@ -100,7 +100,9 @@ SSH access is restricted to key-based login only. You must log in as king using 
 
 If you want to change the key source, edit the setup_users.sh line:
 
+```bash
 curl -s https://github.com/king-o-hill.keys > /home/king/.ssh/authorized_keys
+```
 
 ⚙️ Manual Options
 Create Only
@@ -110,7 +112,9 @@ Create Only
 This will only create the container and stop after starting it.
 Provision Users Only (Existing CT)
 
+```bash
 pct exec <CTID> -- bash -c "apt update -y && apt install curl -y && curl -sSL https://raw.githubusercontent.com/king-o-hill/proxmox/main/setup_users.sh | bash"
+```
 
 🗂 File Locations
 
@@ -128,26 +132,7 @@ Then you can run:
 
 newct
 
-💾 Pushing Changes to GitHub
-
-GitHub no longer supports password authentication for pushes.
-1. Generate a Personal Access Token (PAT)
-
-    Go to GitHub Tokens Settings
-
-    Click "Generate new token (classic)"
-
-    Check repo scope
-
-    Copy the token (you won't see it again!)
-
-2. Push with Token
-
-git add README.md
-git commit -m "Add full updated README with setup instructions"
-git push https://king-o-hill:<your_token>@github.com/king-o-hill/proxmox.git
-
-✅ Requirements
+✅ Requirements:
 
     Proxmox VE 7.x or 8.x
 
@@ -157,42 +142,13 @@ git push https://king-o-hill:<your_token>@github.com/king-o-hill/proxmox.git
 
     Internet access from containers
 
-📌 Notes
+📌 Notes:
 
     Works best when run from Proxmox Web UI console
 
     No cloud-init is used or required
 
     Designed to work without needing direct SSH into host
-
-
-</details>
-
----
-
-### ✅ STEP 2: Save the File in Nano
-
-Once pasted into `nano`, do:
-
-- Press `Ctrl + O`, then `Enter` (to save)
-- Press `Ctrl + X` (to exit)
-
----
-
-### ✅ STEP 3: Push to GitHub
-
-If you haven't already, generate a **Personal Access Token (PAT)** from GitHub with `repo` access:  
-👉 [https://github.com/settings/tokens](https://github.com/settings/tokens)
-
-Now, push the updated README file:
-
-```bash
-cd /root/proxmox
-git add README.md
-git commit -m "Add complete and formatted README"
-git push https://king-o-hill:<your_token>@github.com/king-o-hill/proxmox.git
-
-Replace <your_token> with your actual PAT.
 
 
 🔗 Convenient Shortcuts (Global Commands)
