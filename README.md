@@ -172,3 +172,18 @@ git commit -m "Add complete and formatted README"
 git push https://king-o-hill:<your_token>@github.com/king-o-hill/proxmox.git
 
 Replace <your_token> with your actual PAT.
+
+
+🔗 Convenient Shortcuts (Global Commands)
+
+After running first-run.sh, the following shortcuts will be created automatically:
+
+newct
+
+➡ Launches interactive container creation from a template, including user setup.
+
+destroyct
+
+➡ Destroys a specified container and its associated ZFS volume.
+
+🧠 Note: These commands work globally from anywhere on the Proxmox host.
