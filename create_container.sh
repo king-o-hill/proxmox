@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Use CTID from environment or ask for it manually
+CTID="${CTID:-}"
+
+if [[ -z "$CTID" ]]; then
+  read -p "Enter CT ID: " CTID
+fi
+
 # Location of hook script if you want to auto-bootstrap
 HOOK_SCRIPT="/var/lib/lxc/lxc-user-bootstrap-hook.sh"
 
