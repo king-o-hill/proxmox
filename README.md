@@ -10,24 +10,45 @@ Automate the creation and provisioning of LXC containers on a Proxmox VE host. T
 |-----------------------|---------|
 | `newct.sh`            | **Main launcher script**: orchestrates container creation and post-setup |
 | `create_container.sh` | Prompts for CTID, template, IP, CPU, RAM, swap, and storage; creates the LXC |
-| `destroyct.sh`        |
+| `destroyct.sh`        | Prompts for CTID to destroy the container and delete unneeded elements |
+| `first_run.sh`        | Clones the repo to give commands necessary to run |
 | `setup_users.sh`      | Installs system updates and creates `king` and `nero` users with passwordless sudo, SSH key login, and disables password/root SSH access |
+
+---
+
+🚀 Quick Setup (First Time Install)
+
+To install and enable the provisioning scripts on your Proxmox host:
+
+```bash
+wget -qO- https://raw.githubusercontent.com/king-o-hill/proxmox/main/first-run.sh | bash
+```
+
+This will:
+
+    Clone the GitHub repo (if needed)
+
+    Set up newct and destroyct global commands
+
+    Ensure permissions are set correctly
+
+Afterward, you can create a container using:
+
+newct
+
+Or destroy one safely with:
+
+destroyct
 
 ---
 
 ## 🚀 Quick Start: Create and Provision a New Container
 
-### 1. Clone the Repo on the Proxmox Host
-
-```bash
-cd /root
-git clone https://github.com/king-o-hill/proxmox.git
-cd proxmox
-chmod +x newct.sh create_container.sh setup_users.sh
+### 1. Run the quick setup from above or skip to step 2 if already done
 
 2. Launch Container Creation and Setup
 
-./newct.sh
+execute "newct" command
 
 You will be prompted for:
 
