@@ -6,11 +6,12 @@ Automate the creation and provisioning of LXC containers on a Proxmox VE host. T
 
 ## 📁 What's Included
 
-| File                | Purpose |
-|---------------------|---------|
-| `newct.sh`          | **Main launcher script**: orchestrates container creation and post-setup |
+| File                  | Purpose |
+|-----------------------|---------|
+| `newct.sh`            | **Main launcher script**: orchestrates container creation and post-setup |
 | `create_container.sh` | Prompts for CTID, template, IP, CPU, RAM, swap, and storage; creates the LXC |
-| `setup_users.sh`    | Installs system updates and creates `king` and `nero` users with passwordless sudo, SSH key login, and disables password/root SSH access |
+| `destroyct.sh`        |
+| `setup_users.sh`      | Installs system updates and creates `king` and `nero` users with passwordless sudo, SSH key login, and disables password/root SSH access |
 
 ---
 
