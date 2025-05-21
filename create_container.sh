@@ -38,8 +38,8 @@ if ! ls /var/lib/vz/template/cache/"$TEMPLATE" &> /dev/null; then
 fi
 
 # Build static IP
-STATIC_IP="192.168.4.$CTID/24"
-GATEWAY="192.168.4.1"
+STATIC_IP="192.168.68.$CTID/24"
+GATEWAY="192.168.68.1"
 
 echo "🛠 Creating container $CTID ($HOSTNAME) with static IP $STATIC_IP"
 
