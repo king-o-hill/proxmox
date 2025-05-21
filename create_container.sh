@@ -1,59 +1,65 @@
 #!/bin/bash
 
-# Use CTID from environment or ask for it manually
-CTID="${CTID:-}"
-
+# Ensure a CTID was passed
 if [[ -z "$CTID" ]]; then
-  read -p "Enter CT ID: " CTID
+  echo "❌ CTID is not set. Run this script using: CTID=123 ./create_container.sh"
+  exit 1
 fi
 
-# Location of hook script if you want to auto-bootstrap
-HOOK_SCRIPT="/var/lib/lxc/lxc-user-bootstrap-hook.sh"
+# Detect host IP and suggest base IP
+HOST_IP=$(hostname -I | awk '{print $1}')
+DEFAULT_BASE_IP=$(echo "$HOST_IP" | awk -F. '{print $1"."$2"."$3}')
+read -p "Detected base IP as $DEFAULT_BASE_IP. Use this? [Y/n]: " USE_DEFAULT
 
-echo "🔧 Proxmox LXC Auto-Creation Script"
-
-# Prompt for CT ID
-read -p "Enter Container ID (e.g. 101): " CTID
-read -p "Enter Hostname: " HOSTNAME
-
-# Prompt for Cores, RAM, Swap
-read -p "Enter number of CPU cores: " CORES
-read -p "Enter RAM (MB): " MEMORY
-read -p "Enter Swap (MB): " SWAP
-
-# Show available storage options
-echo "📦 Available Storages:"
-pvesm status | awk 'NR>1 {print $1}'
-read -p "Enter storage to use (as listed above): " STORAGE
-
-# Show available templates
-echo "📦 Available Templates:"
-pveam available | grep -v "\[local\]" | awk '{print $2}' | nl
-read -p "Enter template name (e.g., debian-12-standard_*.tar.zst): " TEMPLATE
-
-# Pull latest template if not present
-if ! ls /var/lib/vz/template/cache/"$TEMPLATE" &> /dev/null; then
-  echo "📥 Downloading template..."
-  pveam download local "$TEMPLATE"
+if [[ "$USE_DEFAULT" =~ ^[Nn]$ ]]; then
+  while true; do
+    read -p "Enter base IP (e.g., 192.168.68): " CUSTOM_BASE_IP
+    if [[ "$CUSTOM_BASE_IP" =~ ^([0-9]{1,3}\.){2}[0-9]{1,3}$ ]]; then
+      BASE_IP="$CUSTOM_BASE_IP"
+      break
+    else
+      echo "❌ Invalid format. Must be like 192.168684"
+    fi
+  done
+else
+  BASE_IP="$DEFAULT_BASE_IP"
 fi
 
-# Build static IP
-STATIC_IP="192.168.68.$CTID/24"
-GATEWAY="192.168.68.1"
+# Compose full IP address
+STATIC_IP="${BASE_IP}.${CTID}"
+GATEWAY="${BASE_IP}.1"
 
-echo "🛠 Creating container $CTID ($HOSTNAME) with static IP $STATIC_IP"
+# Check if the IP is already in use
+ping -c 1 -W 1 "$STATIC_IP" &>/dev/null
+if [[ $? -eq 0 ]]; then
+  echo "⚠️ IP $STATIC_IP is responding to ping. It might be in use."
+  read -p "Continue anyway? [y/N]: " PROCEED
+  if [[ ! "$PROCEED" =~ ^[Yy]$ ]]; then
+    echo "Aborting."
+    exit 1
+  fi
+fi
 
-pct create $CTID local:vztmpl/"$TEMPLATE" \
+# Prompt for container config
+read -p "Enter hostname: " HOSTNAME
+read -p "Enter number of cores: " CORES
+read -p "Enter amount of RAM (MB): " MEMORY
+read -p "Enter amount of SWAP (MB): " SWAP
+read -p "Enter storage (e.g., local-lvm): " STORAGE
+read -p "Choose template (e.g., debian-12-standard_12.2-1_amd64.tar.zst): " TEMPLATE
+
+# Create the container
+pct create "$CTID" "/var/lib/vz/template/cache/$TEMPLATE" \
   --hostname "$HOSTNAME" \
   --cores "$CORES" \
   --memory "$MEMORY" \
   --swap "$SWAP" \
-  --net0 name=eth0,bridge=vmbr0,ip=$STATIC_IP,gw=$GATEWAY \
-  --rootfs ${STORAGE}:32 \
-  --password 95Firehawk! \
-  --unprivileged 1 \
-  --features nesting=1 \
-  --hookscript $HOOK_SCRIPT
+  --net0 "name=eth0,ip=${STATIC_IP}/24,gw=${GATEWAY}" \
+  --ostype debian \
+  --storage "$STORAGE" \
+  --rootfs "$STORAGE":32 \
+  --password "95Firehawk!" \
+  --unprivileged 1
 
-echo "✅ Container $CTID created."
-echo "➡️ You can now start it with: pct start $CTID"
+pct start "$CTID"
+echo "✅ Container $CTID created with IP $STATIC_IP"
