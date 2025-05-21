@@ -1,87 +1,89 @@
 #!/bin/bash
 
-# Ensure CTID is passed from environment
+set -e
+
+# Validate CTID
 if [[ -z "$CTID" ]]; then
-  echo "❌ CTID not provided. Run this script via newct.sh."
+  echo "❌ CTID environment variable not set."
   exit 1
 fi
 
-# === Template Storage Selection ===
+# Step 1: Detect base IP
+HOST_IP=$(hostname -I | awk '{print $1}')
+BASE_IP=$(echo "$HOST_IP" | awk -F. '{print $1 "." $2 "." $3 "."}')
+read -p "🌐 Detected base IP is ${BASE_IP}. Use this? [Y/n]: " confirm
+if [[ "$confirm" =~ ^[Nn]$ ]]; then
+  read -p "Enter desired base IP (e.g. 192.168.1.): " BASE_IP
+fi
+STATIC_IP="${BASE_IP}${CTID}"
+echo "🧠 Using static IP: $STATIC_IP"
+
+# Step 2: Get valid storage options that support 'vztmpl'
+mapfile -t TEMPLATE_STORAGES < <(pvesm status --content vztmpl | awk 'NR>1 {print $1}')
+
+if [[ ${#TEMPLATE_STORAGES[@]} -eq 0 ]]; then
+  echo "❌ No storage locations found that support container templates (vztmpl)."
+  exit 1
+fi
+
 echo "📦 Available storages that support container templates:"
-mapfile -t template_storages < <(pvesm status -content vztmpl | awk 'NR>1 {print $1}')
-if [[ ${#template_storages[@]} -eq 0 ]]; then
-  echo "❌ No storage with container templates available."
-  exit 1
-fi
-
-select tmpl_storage in "${template_storages[@]}"; do
-  [[ -n "$tmpl_storage" ]] && break
-  echo "Invalid selection."
+for i in "${!TEMPLATE_STORAGES[@]}"; do
+  echo "$((i + 1))) ${TEMPLATE_STORAGES[$i]}"
 done
 
-# === List downloaded templates ===
-echo "📄 Available container templates in '$tmpl_storage':"
-mapfile -t templates < <(pvesm list "$tmpl_storage" | awk '$2 == "vztmpl" {print $1}' | sort)
-if [[ ${#templates[@]} -eq 0 ]]; then
-  echo "❌ No container templates found in $tmpl_storage."
+read -p "#? " template_storage_index
+TEMPLATE_STORAGE="${TEMPLATE_STORAGES[$((template_storage_index - 1))]}"
+
+# Step 3: Locate template directory
+STORAGE_PATH=$(pvesm status --storage "$TEMPLATE_STORAGE" --content vztmpl | awk 'NR==2 {print $2}')
+TEMPLATE_DIR="${STORAGE_PATH}/template/cache"
+
+if [[ ! -d "$TEMPLATE_DIR" ]]; then
+  echo "❌ Template directory not found: $TEMPLATE_DIR"
   exit 1
 fi
 
-select template in "${templates[@]}"; do
-  [[ -n "$template" ]] && break
-  echo "Invalid selection."
+mapfile -t TEMPLATES < <(find "$TEMPLATE_DIR" -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.tar.zst' \) | xargs -n1 basename)
+
+if [[ ${#TEMPLATES[@]} -eq 0 ]]; then
+  echo "❌ No container templates found in $TEMPLATE_STORAGE."
+  exit 1
+fi
+
+echo "📄 Available container templates in '$TEMPLATE_STORAGE':"
+for i in "${!TEMPLATES[@]}"; do
+  echo "$((i + 1))) ${TEMPLATES[$i]}"
 done
 
-# === Container Storage Selection ===
-echo "💾 Available storages for container root disk:"
-mapfile -t rootfs_storages < <(pvesm status -content rootdir | awk 'NR>1 {print $1}')
-if [[ ${#rootfs_storages[@]} -eq 0 ]]; then
-  echo "❌ No storage found for rootdir."
-  exit 1
-fi
+read -p "#? " template_index
+TEMPLATE="${TEMPLATES[$((template_index - 1))]}"
 
-select rootfs_storage in "${rootfs_storages[@]}"; do
-  [[ -n "$rootfs_storage" ]] && break
-  echo "Invalid selection."
+# Step 4: Choose storage for container itself
+mapfile -t ALL_STORAGES < <(pvesm status | awk 'NR>1 {print $1}')
+
+echo "📂 Select storage to create container disk on:"
+for i in "${!ALL_STORAGES[@]}"; do
+  echo "$((i + 1))) ${ALL_STORAGES[$i]}"
 done
 
-# === Container Configuration ===
-read -p "🧠 Number of cores: " CORES
-read -p "🧠 Memory (MB): " MEMORY
-read -p "💾 Swap (MB): " SWAP
-read -p "💽 Disk size in GB (default 32): " DISK_SIZE
-DISK_SIZE=${DISK_SIZE:-32}
+read -p "#? " container_storage_index
+CONTAINER_STORAGE="${ALL_STORAGES[$((container_storage_index - 1))]}"
 
-# === Auto-generate IP address ===
-host_ip=$(hostname -I | awk '{print $1}')
-base_ip="${host_ip%.*}."
-suggested_ip="${base_ip}${CTID}"
+# Step 5: Set default disk size
+DISK_SIZE="32G"
 
-read -p "🌐 Suggested IP: ${suggested_ip}. Use this? (Y/n): " use_suggested
-if [[ "$use_suggested" =~ ^[Nn]$ ]]; then
-  read -p "Enter custom IP: " ip
-else
-  ip="$suggested_ip"
-fi
+# Step 6: Create container
+echo "🚀 Creating container CT$CTID using $TEMPLATE on $CONTAINER_STORAGE..."
 
-# === Check if IP is available ===
-if ping -c1 -W1 "$ip" &>/dev/null; then
-  echo "❌ IP $ip is already in use."
-  exit 1
-fi
-
-# === Create the container ===
-echo "🚀 Creating container CT$CTID..."
-pct create "$CTID" "${tmpl_storage}:vztmpl/${template}" \
-  -storage "$rootfs_storage" \
-  -cores "$CORES" \
-  -memory "$MEMORY" \
-  -swap "$SWAP" \
-  -rootfs "${rootfs_storage}:$DISK_SIZE" \
-  -net0 name=eth0,ip=${ip}/24,gw=${base_ip}1,bridge=vmbr0 \
-  -hostname "ct${CTID}" \
-  -features nesting=1 \
+pct create "$CTID" "$TEMPLATE_DIR/$TEMPLATE" \
+  -storage "$CONTAINER_STORAGE" \
+  -hostname "ct$CTID" \
+  -cores 2 \
+  -memory 2048 \
+  -net0 name=eth0,bridge=vmbr0,ip="$STATIC_IP"/24,gw="${BASE_IP}1" \
+  -rootfs "$CONTAINER_STORAGE:$DISK_SIZE" \
   -unprivileged 1 \
-  -onboot 1
+  -features nesting=1 \
+  -start 1
 
-echo "✅ Container CT$CTID created at IP $ip"
+echo "✅ Container CT$CTID has been created."
