@@ -1,22 +1,25 @@
 #!/bin/bash
 
-echo "📦 Cloning proxmox provisioning repo..."
+REPO_URL="https://github.com/king-o-hill/proxmox.git"
+INSTALL_DIR="/root/proxmox"
 
-# Clone if missing
-if [ ! -d "/root/proxmox" ]; then
-  git clone https://github.com/king-o-hill/proxmox.git /root/proxmox
+echo "📦 Cloning or updating Proxmox provisioning repo..."
+
+if [ -d "$INSTALL_DIR/.git" ]; then
+  git -C "$INSTALL_DIR" pull --rebase
 else
-  echo "📁 /root/proxmox already exists. Skipping clone."
+  rm -rf "$INSTALL_DIR"
+  git clone "$REPO_URL" "$INSTALL_DIR"
 fi
 
-cd /root/proxmox || { echo "❌ Failed to access /root/proxmox"; exit 1; }
+echo "🔧 Setting permissions..."
+chmod +x "$INSTALL_DIR"/*.sh
 
-# Make scripts executable
-chmod +x newct.sh destroyct.sh || echo "⚠️ One or more scripts missing."
+echo "🔗 Creating or updating symlinks..."
+ln -sf "$INSTALL_DIR/newct.sh" /usr/local/bin/newct
+ln -sf "$INSTALL_DIR/destroyct.sh" /usr/local/bin/destroyct
 
-# Create symlinks
-ln -sf /root/proxmox/newct.sh /usr/local/bin/newct
-ln -sf /root/proxmox/destroyct.sh /usr/local/bin/destroyct
-
-echo "✅ Proxmox provisioning scripts installed."
-echo "🟢 You can now use:  newct   or   destroyct"
+echo "✅ Proxmox provisioning tools installed!"
+echo "🟢 You can now use:"
+echo "   👉  newct"
+echo "   👉  destroyct"
