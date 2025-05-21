@@ -1,65 +1,77 @@
 #!/bin/bash
 
-# Ensure a CTID was passed
+# Ensure we're in the script directory
+cd "$(dirname "$0")" || exit 1
+
+# Require CTID from environment
 if [[ -z "$CTID" ]]; then
-  echo "❌ CTID is not set. Run this script using: CTID=123 ./create_container.sh"
+  echo "❌ CTID environment variable not set. Run from newct.sh or export CTID manually."
   exit 1
 fi
 
-# Detect host IP and suggest base IP
-HOST_IP=$(hostname -I | awk '{print $1}')
-DEFAULT_BASE_IP=$(echo "$HOST_IP" | awk -F. '{print $1"."$2"."$3}')
-read -p "Detected base IP as $DEFAULT_BASE_IP. Use this? [Y/n]: " USE_DEFAULT
+# Get list of storage backends that support container images
+mapfile -t STORAGE_LIST < <(pvesm status -content rootdir | awk 'NR>1 {print $1}')
 
-if [[ "$USE_DEFAULT" =~ ^[Nn]$ ]]; then
-  while true; do
-    read -p "Enter base IP (e.g., 192.168.68): " CUSTOM_BASE_IP
-    if [[ "$CUSTOM_BASE_IP" =~ ^([0-9]{1,3}\.){2}[0-9]{1,3}$ ]]; then
-      BASE_IP="$CUSTOM_BASE_IP"
-      break
-    else
-      echo "❌ Invalid format. Must be like 192.168684"
-    fi
-  done
-else
-  BASE_IP="$DEFAULT_BASE_IP"
+if [[ ${#STORAGE_LIST[@]} -eq 0 ]]; then
+  echo "❌ No storage backends found that support container rootdir."
+  exit 1
 fi
 
-# Compose full IP address
-STATIC_IP="${BASE_IP}.${CTID}"
-GATEWAY="${BASE_IP}.1"
+echo "Select storage:"
+for i in "${!STORAGE_LIST[@]}"; do
+  echo "  $((i+1))) ${STORAGE_LIST[$i]}"
+done
 
-# Check if the IP is already in use
-ping -c 1 -W 1 "$STATIC_IP" &>/dev/null
-if [[ $? -eq 0 ]]; then
-  echo "⚠️ IP $STATIC_IP is responding to ping. It might be in use."
-  read -p "Continue anyway? [y/N]: " PROCEED
-  if [[ ! "$PROCEED" =~ ^[Yy]$ ]]; then
-    echo "Aborting."
-    exit 1
-  fi
+read -rp "Enter a number [1-${#STORAGE_LIST[@]}]: " storage_index
+STORAGE="${STORAGE_LIST[$((storage_index-1))]}"
+
+# Get template list
+mapfile -t TEMPLATES < <(pveam list "$STORAGE" | awk 'NR>1 {print $2}' | grep -vE '(^$|^\s+)')
+
+if [[ ${#TEMPLATES[@]} -eq 0 ]]; then
+  echo "❌ No templates found in storage '$STORAGE'. Download one via PVE UI or 'pveam download'."
+  exit 1
 fi
 
-# Prompt for container config
-read -p "Enter hostname: " HOSTNAME
-read -p "Enter number of cores: " CORES
-read -p "Enter amount of RAM (MB): " MEMORY
-read -p "Enter amount of SWAP (MB): " SWAP
-read -p "Enter storage (e.g., local-lvm): " STORAGE
-read -p "Choose template (e.g., debian-12-standard_12.2-1_amd64.tar.zst): " TEMPLATE
+echo "Select template:"
+for i in "${!TEMPLATES[@]}"; do
+  echo "  $((i+1))) ${TEMPLATES[$i]}"
+done
 
-# Create the container
-pct create "$CTID" "/var/lib/vz/template/cache/$TEMPLATE" \
-  --hostname "$HOSTNAME" \
+read -rp "Enter a number [1-${#TEMPLATES[@]}]: " template_index
+TEMPLATE="${TEMPLATES[$((template_index-1))]}"
+
+# Prompt for CPU, RAM, and SWAP
+read -rp "Number of cores [default: 2]: " CORES
+CORES="${CORES:-2}"
+
+read -rp "RAM in MB [default: 2048]: " MEMORY
+MEMORY="${MEMORY:-2048}"
+
+read -rp "SWAP in MB [default: 512]: " SWAP
+SWAP="${SWAP:-512}"
+
+# Auto-detect host IP subnet
+BASE_IP=$(ip -4 addr show scope global | grep -oP '(?<=inet\s)\d+\.\d+\.\d+\.')[]
+DEFAULT_IP="${BASE_IP}${CTID}"
+
+read -rp "Use static IP [default: $DEFAULT_IP]: " STATIC_IP
+STATIC_IP="${STATIC_IP:-$DEFAULT_IP}"
+
+# Confirm network
+GATEWAY="${BASE_IP}1"
+
+echo "📦 Creating container CT$CTID..."
+
+pct create "$CTID" "$STORAGE:vztmpl/$TEMPLATE" \
   --cores "$CORES" \
   --memory "$MEMORY" \
   --swap "$SWAP" \
   --net0 "name=eth0,ip=${STATIC_IP}/24,gw=${GATEWAY}" \
-  --ostype debian \
-  --storage "$STORAGE" \
-  --rootfs "$STORAGE":32 \
-  --password "95Firehawk!" \
-  --unprivileged 1
+  --hostname "ct$CTID" \
+  --rootfs "$STORAGE:32" \
+  --unprivileged 1 \
+  --features "nesting=1" \
+  --start 1
 
-pct start "$CTID"
-echo "✅ Container $CTID created with IP $STATIC_IP"
+echo "✅ Container CT$CTID created with static IP $STATIC_IP"
