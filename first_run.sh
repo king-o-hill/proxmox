@@ -1,23 +1,34 @@
 #!/bin/bash
 
-REPO_URL="https://github.com/king-o-hill/proxmox.git"
-INSTALL_DIR="/root/proxmox"
+set -e
+
+REPO_URL="https://github.com/king-o-hill/proxmox"
+CLONE_DIR="/root/proxmox"
 
 echo "📦 Cloning or updating Proxmox provisioning repo..."
 
-# Delete and re-clone to guarantee a clean install
-rm -rf "$INSTALL_DIR"
-git clone "$REPO_URL" "$INSTALL_DIR"
+if [ -d "$CLONE_DIR/.git" ]; then
+  git -C "$CLONE_DIR" pull --quiet
+else
+  git clone --quiet "$REPO_URL" "$CLONE_DIR"
+fi
 
 echo "🔧 Setting permissions on all scripts..."
-chmod +x "$INSTALL_DIR"/*.sh
+chmod +x "$CLONE_DIR"/*.sh
 
 echo "🔗 Creating or fixing symlinks..."
-ln -sf "$INSTALL_DIR/newct.sh" /usr/local/bin/newct
-ln -sf "$INSTALL_DIR/destroyct.sh" /usr/local/bin/destroyct
+ln -sf "$CLONE_DIR/create_container.sh" /usr/local/bin/newct
+ln -sf "$CLONE_DIR/destroy_container.sh" /usr/local/bin/destroyct
+ln -sf "$CLONE_DIR/setup_users.sh" /usr/local/bin/users
+
+chmod +x /usr/local/bin/newct
+chmod +x /usr/local/bin/destroyct
+chmod +x /usr/local/bin/users
 
 echo "✅ Proxmox provisioning tools installed!"
+
 echo
 echo "🟢 You can now use:"
 echo "   👉  newct"
 echo "   👉  destroyct"
+echo "   👉  users"
