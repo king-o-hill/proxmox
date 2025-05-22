@@ -92,4 +92,17 @@ pct push "$CTID" /root/proxmox/setup_users.sh /root/setup_users.sh
 echo "🔗 Creating 'users' command inside CT$CTID..."
 pct exec "$CTID" -- bash -c "chmod +x /root/setup_users.sh && ln -sf /root/setup_users.sh /usr/local/bin/users"
 
+MOUNT_PATH="/var/lib/lxc/$CTID/rootfs"
+
+# Move both scripts into container
+cp first_run.sh setup_users.sh "$MOUNT_PATH/root/"
+chmod +x "$MOUNT_PATH/root/first_run.sh" "$MOUNT_PATH/root/setup_users.sh"
+
+# Move first_login.sh to /etc/skel so it goes into new user homes
+cp first_login.sh "$MOUNT_PATH/etc/skel/first_login.sh"
+chmod +x "$MOUNT_PATH/etc/skel/first_login.sh"
+
+# Set autostart via .bash_profile
+echo '[ -f ~/first_login.sh ] && bash ~/first_login.sh' >> "$MOUNT_PATH/etc/skel/.bash_profile"
+
 echo -e "${GREEN}✅ Container CT${CTID} created and configured.${RESET}"
