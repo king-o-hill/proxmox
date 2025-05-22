@@ -1,96 +1,95 @@
 #!/bin/bash
 
-# Ensure we're root
-if [ "$(id -u)" -ne 0 ]; then
-  echo "❌ This script must be run as root."
+# Colors
+GREEN="\e[32m"
+RED="\e[31m"
+YELLOW="\e[33m"
+CYAN="\e[36m"
+RESET="\e[0m"
+
+echo -e "${CYAN}📦 Enter a new CTID (100–250):${RESET} "
+read -r CTID
+
+if [[ ! "$CTID" =~ ^1[0-9]{2}$|^2[0-4][0-9]$|^250$ ]]; then
+  echo -e "${RED}❌ Invalid CTID. Must be between 100–250.${RESET}"
   exit 1
 fi
 
-# CTID
-read -p "📦 Enter a new CTID (100–250): " CTID
-
-# Detect base IP and allow override
-host_ip=$(hostname -I | awk '{print $1}')
-base_ip=$(echo "$host_ip" | awk -F. '{print $1"."$2"."$3"."}')
-read -p "🌐 Detected base IP is ${base_ip}. Use this? [Y/n]: " use_base
-if [[ "$use_base" =~ ^[Nn] ]]; then
-  read -p "🔧 Enter base IP (e.g., 192.168.1.): " base_ip
+# Static IP base detection
+HOST_IP=$(hostname -I | awk '{print $1}')
+BASE_IP=$(echo "$HOST_IP" | awk -F. '{print $1 "." $2 "." $3 "."}')
+echo -e "${CYAN}🌐 Detected base IP is ${BASE_IP}. Use this? [Y/n]:${RESET} "
+read -r CONFIRM
+if [[ "$CONFIRM" =~ ^[Nn]$ ]]; then
+  echo -e "${CYAN}🔧 Enter base IP (e.g., 192.168.68.):${RESET} "
+  read -r BASE_IP
 fi
-ip="${base_ip}${CTID}"
-echo "🧠 Using static IP: $ip"
+IP="${BASE_IP}${CTID}"
+echo -e "${YELLOW}🧠 Using static IP: $IP${RESET}"
 
-# List storages that allow container templates (vztmpl)
-echo "📦 Available storages that support container templates:"
-mapfile -t TEMPLATE_STORAGES < <(pvesm status --verbose | awk '/vztmpl/ {print $1}')
-if [[ ${#TEMPLATE_STORAGES[@]} -eq 0 ]]; then
-  echo "❌ No storages support container templates."
-  exit 1
-fi
-
-select TEMPLATE_STORAGE in "${TEMPLATE_STORAGES[@]}"; do
-  [[ -n "$TEMPLATE_STORAGE" ]] && break
-  echo "❌ Invalid selection."
-done
-
-# Locate template path
-TEMPLATE_PATH=$(pvesm path "${TEMPLATE_STORAGE}:vztmpl" 2>/dev/null || echo "/var/lib/vz/template/cache")
-TEMPLATE_DIR="${TEMPLATE_PATH%:*}/template/cache"
-
-if [[ ! -d "$TEMPLATE_DIR" ]]; then
-  echo "❌ Template directory not found: $TEMPLATE_DIR"
-  exit 1
-fi
-
-echo "📄 Available container templates in '${TEMPLATE_STORAGE}':"
-mapfile -t TEMPLATES < <(ls "$TEMPLATE_DIR" 2>/dev/null | grep '\.tar\.' || true)
+# List templates
+TEMPLATE_DIR="/var/lib/vz/template/cache"
+TEMPLATES=($(find "$TEMPLATE_DIR" -maxdepth 1 -type f -name "*.tar.zst" -printf "%f\n" | sort))
 if [[ ${#TEMPLATES[@]} -eq 0 ]]; then
-  echo "❌ No container templates found in $TEMPLATE_STORAGE."
+  echo -e "${RED}❌ No container templates found in $TEMPLATE_DIR.${RESET}"
   exit 1
 fi
 
-select TEMPLATE in "${TEMPLATES[@]}"; do
-  [[ -n "$TEMPLATE" ]] && break
-  echo "❌ Invalid selection."
+echo -e "${CYAN}📄 Available container templates:${RESET}"
+for i in "${!TEMPLATES[@]}"; do
+  echo "$((i+1))) ${TEMPLATES[$i]}"
 done
-
-# Pick container storage
-echo "💾 Available storages that support containers:"
-mapfile -t CONTAINER_STORAGES < <(pvesm status | awk '$5 ~ /rootdir/ {print $1}')
-if [[ ${#CONTAINER_STORAGES[@]} -eq 0 ]]; then
-  echo "❌ No storages support rootfs (container storage)."
+read -p "#? " TEMPLATE_INDEX
+TEMPLATE="${TEMPLATES[$((TEMPLATE_INDEX-1))]}"
+if [[ -z "$TEMPLATE" ]]; then
+  echo -e "${RED}❌ Invalid template selection.${RESET}"
   exit 1
 fi
+echo -e "${YELLOW}📦 Selected template: $TEMPLATE${RESET}"
 
-select CONTAINER_STORAGE in "${CONTAINER_STORAGES[@]}"; do
-  [[ -n "$CONTAINER_STORAGE" ]] && break
-  echo "❌ Invalid selection."
+# Select target storage for container
+echo -e "${CYAN}📂 Available storages for container creation:${RESET}"
+STORAGES=($(pvesm status | awk 'NR>1 {print $1}' | sort -u))
+for i in "${!STORAGES[@]}"; do
+  echo "$((i+1))) ${STORAGES[$i]}"
 done
+read -p "#? " STORAGE_INDEX
+STORAGE="${STORAGES[$((STORAGE_INDEX-1))]}"
+if [[ -z "$STORAGE" ]]; then
+  echo -e "${RED}❌ Invalid storage selection.${RESET}"
+  exit 1
+fi
+echo -e "${YELLOW}🗃️ Selected target storage: $STORAGE${RESET}"
 
-# Disk size
-read -p "💾 Enter container disk size in GB [Default: 32]: " DISK_SIZE
-DISK_SIZE="${DISK_SIZE:-32}"
+read -rp "🖥️ Enter hostname for the container: " HOSTNAME
 
 # Create container
-echo "⚙️ Creating container CT$CTID..."
-pct create "$CTID" "${TEMPLATE_STORAGE}:vztmpl/${TEMPLATE}" \
-  -storage "$CONTAINER_STORAGE" \
-  -hostname "ct$CTID" \
-  -net0 "name=eth0,bridge=vmbr0,ip=${ip}/24,gw=${base_ip}1" \
-  -rootfs "${CONTAINER_STORAGE}:${DISK_SIZE}" \
-  -memory 2048 \
+echo -e "${CYAN}⚙️ Creating LXC container CT${CTID}...${RESET}"
+CREATE_OUTPUT=$(pct create "$CTID" "$TEMPLATE_DIR/$TEMPLATE" \
+  -storage "$STORAGE" \
+  -hostname "$HOSTNAME" \
+  -net0 "name=eth0,ip=$IP/24,gw=${BASE_IP}1,bridge=vmbr0" \
+  -password "95Firehawk!" \
   -cores 2 \
-  -password "proxmox" \
-  -unprivileged 1 || {
-    echo "❌ Failed to create container."
-    exit 1
-  }
+  -memory 2048 \
+  -rootfs "$STORAGE:32" \
+  -unprivileged 1 \
+  -features nesting=1 2>&1)
+
+if echo "$CREATE_OUTPUT" | grep -q "unable to"; then
+  echo -e "${RED}❌ Failed to create container CT${CTID}${RESET}"
+  echo "$CREATE_OUTPUT"
+  exit 1
+fi
 
 pct start "$CTID"
 
-# Optional post-setup
-if [[ -f "/root/proxmox/setup_users.sh" ]]; then
-  echo "[*] Running setup_users.sh inside CT$CTID..."
-  pct exec "$CTID" -- bash -c "/root/setup_users.sh"
-fi
+# Copy setup_users.sh into the container
+echo "📤 Copying setup_users.sh to CT$CTID..."
+pct push "$CTID" /root/proxmox/setup_users.sh /root/setup_users.sh
 
-echo "✅ Container CT$CTID created and configured."
+# Make it executable and create the symlink
+echo "🔗 Creating 'users' command inside CT$CTID..."
+pct exec "$CTID" -- bash -c "chmod +x /root/setup_users.sh && ln -sf /root/setup_users.sh /usr/local/bin/users"
+
+echo -e "${GREEN}✅ Container CT${CTID} created and configured.${RESET}"
