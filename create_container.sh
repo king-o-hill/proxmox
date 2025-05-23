@@ -88,16 +88,33 @@ START_NOW=${START_NOW:-Y}
 if [[ "$START_NOW" =~ ^[Yy]$ ]]; then
   echo "🚀 Starting container CT$CTID..."
   pct start $CTID
-  echo "📤Waiting for container CT$CTID to start up"
+  echo "📤gWaiting for container CT$CTID to start up"
   sleep 12
 
   echo "📤 Pushing setup scripts into container CT$CTID..."
 
-  # Push setup scripts
-  pct push $CTID first_login.sh /etc/profile.d/first_login.sh
+if [[ -f "$CLONE_DIR/first_login.sh" ]]; then
+  pct push $CTID "$CLONE_DIR/first_login.sh" /etc/profile.d/first_login.sh -perms 0755
+  sleep 2
   pct exec $CTID -- chmod +x /etc/profile.d/first_login.sh
-  pct push $CTID setup_users.sh /root/setup_users.sh
+else
+  echo "⚠️ first_login.sh not found. Skipping push."
+fi
+
+if [[ -f "$CLONE_DIR/setup_users.sh" ]]; then
+  pct push $CTID "$CLONE_DIR/setup_users.sh" /root/setup_users.sh -perms 0755
+  sleep 2
   pct exec $CTID -- chmod +x /root/setup_users.sh
+else
+  echo "⚠️ setup_users.sh not found. Skipping push."
+fi
+
+
+  # Push keys
+#  pct push $CTID first_login.sh /etc/profile.d/first_login.sh
+#  pct exec $CTID -- chmod +x /etc/profile.d/first_login.sh
+#  pct push $CTID setup_users.sh /root/setup_users.sh
+#  pct exec $CTID -- chmod +x /root/setup_users.sh
   pct push $CTID /keys/king/id_ed25519.pub /root/king.pub
   pct push $CTID /keys/nero/id_ed25519.pub /root/nero.pub
 
