@@ -120,7 +120,7 @@ fi
 
 
   # Ensure /root/.bashrc sources profile scripts (if not already doing so)
-  pct exec $CTID -- bash -c \'grep -qxF 'source /etc/profile' /root/.bashrc || echo 'source /etc/profile' >> /root/.bashrc\'
+  pct exec "$CTID" -- bash -c "grep -qxF 'source /etc/profile' /root/.bashrc || echo 'source /etc/profile' >> /root/.bashrc"
 
   # Create symlink for 'users' command
   pct exec $CTID -- ln -sf /root/setup_users.sh /usr/local/bin/users
