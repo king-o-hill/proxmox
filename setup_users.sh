@@ -3,6 +3,10 @@ set -e
 
 echo "👥 Setting up users and SSH keys..."
 
+# Read the pushed pubkeys (from create_container.sh)
+KING_KEY=$(cat /root/king.pub)
+NERO_KEY=$(cat /root/nero.pub)
+
 create_user() {
     local USERNAME="$1"
     local PASSWORD="$2"
@@ -28,10 +32,6 @@ create_user() {
         echo "⚠️ User '$USERNAME' already exists. Skipping."
     fi
 }
-
-# Use public keys from pre-populated files
-KING_KEY=$(cat /home/king/.ssh/authorized_keys)
-NERO_KEY=$(cat /home/nero/.ssh/authorized_keys)
 
 create_user "king" "95Firehawk!" "$KING_KEY"
 create_user "nero" "tachibana" "$NERO_KEY"

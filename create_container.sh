@@ -82,27 +82,34 @@ if echo "$CREATE_OUTPUT" | grep -q "unable to"; then
   exit 1
 fi
 
-pct start "$CTID"
+read -p "🚀 Start container now? Y/n]: " STARTNOW
+START_NOW=${START_NOW:-Y}
 
-# Copy setup_users.sh into the container
-echo "📤 Copying setup_users.sh to CT$CTID..."
-pct push "$CTID" /root/proxmox/setup_users.sh /root/setup_users.sh
+if [[ "$START_NOW" =~ ^[Yy]$ ]]; then
+  echo "🚀 Starting container CT$CTID..."
+  pct start $CTID
+  echo "📤Waiting for container CT$CTID to start up"
+  sleep 12
 
-# Make it executable and create the symlink
-echo "🔗 Creating 'users' command inside CT$CTID..."
-pct exec "$CTID" -- bash -c "chmod +x /root/setup_users.sh && ln -sf /root/setup_users.sh /usr/local/bin/users"
+  echo "📤 Pushing setup scripts into container CT$CTID..."
 
-MOUNT_PATH="/var/lib/lxc/$CTID/rootfs"
+  # Push setup scripts
+  pct push $CTID first_login.sh /etc/profile.d/first_login.sh
+  pct exec $CTID -- chmod +x /etc/profile.d/first_login.sh
+  pct push $CTID setup_users.sh /root/setup_users.sh
+  pct exec $CTID -- chmod +x /root/setup_users.sh
+  pct push $CTID /keys/king/id_ed25519.pub /root/king.pub
+  pct push $CTID /keys/nero/id_ed25519.pub /root/nero.pub
 
-# Move both scripts into container
-cp first_run.sh setup_users.sh "$MOUNT_PATH/root/"
-chmod +x "$MOUNT_PATH/root/first_run.sh" "$MOUNT_PATH/root/setup_users.sh"
 
-# Move first_login.sh to /etc/skel so it goes into new user homes
-cp first_login.sh "$MOUNT_PATH/etc/skel/first_login.sh"
-chmod +x "$MOUNT_PATH/etc/skel/first_login.sh"
+  # Ensure /root/.bashrc sources profile scripts (if not already doing so)
+  pct exec $CTID -- bash -c \'grep -qxF 'source /etc/profile' /root/.bashrc || echo 'source /etc/profile' >> /root/.bashrc\'
 
-# Set autostart via .bash_profile
-echo '[ -f ~/first_login.sh ] && bash ~/first_login.sh' >> "$MOUNT_PATH/etc/skel/.bash_profile"
+  # Create symlink for 'users' command
+  pct exec $CTID -- ln -sf /root/setup_users.sh /usr/local/bin/users
 
-echo -e "${GREEN}✅ Container CT${CTID} created and configured.${RESET}"
+  echo "✅ Container CT$CTID created and configured."
+else
+  echo "⚠️ Skipping container start. You must start CT$CTID manually and run /root/first_run.sh inside it to complete setup."
+fi
+

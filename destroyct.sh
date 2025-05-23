@@ -27,6 +27,7 @@ fi
 if pct status "$CTID" | grep -q "running"; then
   echo "⏹️ Stopping container CT$CTID..."
   pct stop "$CTID"
+  sleep 10
 fi
 
 # Destroy the container
