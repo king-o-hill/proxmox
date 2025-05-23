@@ -13,22 +13,22 @@ else
   git clone --quiet "$REPO_URL" "$CLONE_DIR"
 fi
 
-echo "🔧 Setting permissions on all scripts..."
-chmod +x "$CLONE_DIR"/*.sh
-
 # Remove broken symlinks if they exist
 for cmd in newct destroyct users; do
     LINK="/usr/local/bin/$cmd"
     [ -L "$LINK" ] && [ ! -e "$LINK" ] && rm "$LINK"
 done
 
-sleep 5
+sleep 3
+
+echo "🔧 Setting permissions on all scripts..."
+chmod +x "$CLONE_DIR"/*.sh
 
 echo "🔗 Creating or fixing symlinks..."
 ln -sf "$CLONE_DIR/create_container.sh" /usr/local/bin/newct
 ln -sf "$CLONE_DIR/destroy_container.sh" /usr/local/bin/destroyct
 
-sleep 5
+sleep 3
 
 chmod +x /usr/local/bin/newct
 chmod +x /usr/local/bin/destroyct
