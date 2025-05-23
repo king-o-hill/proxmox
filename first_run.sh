@@ -22,9 +22,13 @@ for cmd in newct destroyct users; do
     [ -L "$LINK" ] && [ ! -e "$LINK" ] && rm "$LINK"
 done
 
+sleep 5
+
 echo "🔗 Creating or fixing symlinks..."
 ln -sf "$CLONE_DIR/create_container.sh" /usr/local/bin/newct
 ln -sf "$CLONE_DIR/destroy_container.sh" /usr/local/bin/destroyct
+
+sleep 5
 
 chmod +x /usr/local/bin/newct
 chmod +x /usr/local/bin/destroyct
