@@ -21,7 +21,7 @@ Automate the creation and provisioning of LXC containers on a Proxmox VE host. T
 To install and enable the provisioning scripts on your Proxmox host:
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/king-o-hill/proxmox/main/first-run.sh | bash
+wget -qO- https://raw.githubusercontent.com/king-o-hill/proxmox/main/first_run.sh | bash
 ```
 
 This will:
