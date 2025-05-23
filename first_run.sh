@@ -16,6 +16,12 @@ fi
 echo "🔧 Setting permissions on all scripts..."
 chmod +x "$CLONE_DIR"/*.sh
 
+# Remove broken symlinks if they exist
+for cmd in newct destroyct users; do
+    LINK="/usr/local/bin/$cmd"
+    [ -L "$LINK" ] && [ ! -e "$LINK" ] && rm "$LINK"
+done
+
 echo "🔗 Creating or fixing symlinks..."
 ln -sf "$CLONE_DIR/create_container.sh" /usr/local/bin/newct
 ln -sf "$CLONE_DIR/destroy_container.sh" /usr/local/bin/destroyct
