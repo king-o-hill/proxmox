@@ -18,3 +18,4 @@ if [[ ! -f /usr/local/bin/newct ]]; then
 fi
 
 echo "✅ Container CT$CTID created and configured."
+
