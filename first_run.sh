@@ -19,11 +19,9 @@ chmod +x "$CLONE_DIR"/*.sh
 echo "🔗 Creating or fixing symlinks..."
 ln -sf "$CLONE_DIR/create_container.sh" /usr/local/bin/newct
 ln -sf "$CLONE_DIR/destroy_container.sh" /usr/local/bin/destroyct
-ln -sf "$CLONE_DIR/setup_users.sh" /usr/local/bin/users
 
 chmod +x /usr/local/bin/newct
 chmod +x /usr/local/bin/destroyct
-chmod +x /usr/local/bin/users
 
 echo "✅ Proxmox provisioning tools installed!"
 
@@ -31,4 +29,3 @@ echo
 echo "🟢 You can now use:"
 echo "   👉  newct"
 echo "   👉  destroyct"
-echo "   👉  users"
