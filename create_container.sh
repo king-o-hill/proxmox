@@ -7,6 +7,14 @@ YELLOW="\e[33m"
 CYAN="\e[36m"
 RESET="\e[0m"
 
+# Ensure the path to repo is known
+CLONE_DIR="/root/proxmox"
+
+if [ ! -d "$CLONE_DIR" ]; then
+    echo "❌ Error: Expected clone directory $CLONE_DIR not found. Make sure first_run.sh has been executed."
+    exit 1
+fi
+
 echo -e "${CYAN}📦 Enter a new CTID (100–250):${RESET} "
 read -r CTID
 
