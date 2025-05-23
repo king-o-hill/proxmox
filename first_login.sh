@@ -19,5 +19,11 @@ if [ ! -f "$SENTINEL" ]; then
 # Remove this script from future logins
   rm -f /etc/profile.d/first_login.sh
   rm -f /root/setup_users.sh
-
+sleep 5
 fi
+
+# Update and install basic tools
+echo "📦 Updating system and installing cur & git..."
+apt update && apt upgrade -y
+apt install curl -y
+apt install git -y
