@@ -1,9 +1,5 @@
 #!/bin/bash
 
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/post-pve-install.sh)"
-
-apt update && apt upgrade -y && apt install git curl -y
-
 set -e
 
 REPO_URL="https://github.com/king-o-hill/proxmox"
