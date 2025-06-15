@@ -1,6 +1,8 @@
 #!/bin/bash
 
-apt update && apt upgrade -y && apt install curl git -y
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/post-pve-install.sh)"
+
+apt update && apt upgrade -y && apt install git curl -y
 
 set -e
 
