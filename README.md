@@ -74,7 +74,7 @@ The script will:
 
     Then install:
 
-        Users king (password: REDACTED) and nero (password: REDACTED)
+        Users king and nero, each with a randomly generated password
 
         Passwordless sudo access
 
@@ -85,9 +85,23 @@ The script will:
         Run apt update, upgrade, and install curl, git
 
 👥 Users Created Inside Container
-User	Password	Sudo Access	SSH Login	Passwordless
-king	REDACTED	✅ Yes	✅ Key only	✅
-nero	REDACTED	❌ No	❌ Not provisioned with key	✅
+
+| User | Password | Sudo Access | SSH Login | Passwordless |
+|------|----------|-------------|-----------|--------------|
+| king | generated per container | ✅ Yes | ✅ Key only | ✅ |
+| nero | generated per container | ❌ No | ❌ Not provisioned with key | ✅ |
+
+🔑 Passwords
+
+The container root password and both user passwords are generated randomly for
+each container and printed **once**, at the end of the `newct` run. They are not
+stored on disk or committed anywhere — record them when they are displayed.
+
+To set them yourself instead, export them before running:
+
+```bash
+CT_ROOT_PASSWORD='...' KING_PASSWORD='...' NERO_PASSWORD='...' newct
+```
 
 SSH access is restricted to key-based login only. You must log in as king using the SSH key fetched from GitHub.
 🔐 SSH Security Defaults

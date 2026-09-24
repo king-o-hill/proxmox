@@ -15,6 +15,15 @@ if [ ! -d "$CLONE_DIR" ]; then
     exit 1
 fi
 
+# Passwords are generated per container and printed once at the end of this run.
+# Nothing is stored on disk. To choose them yourself, export before running:
+#   CT_ROOT_PASSWORD=... KING_PASSWORD=... NERO_PASSWORD=... newct
+gen_password() { tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 20; }
+
+CT_ROOT_PASSWORD="${CT_ROOT_PASSWORD:-$(gen_password)}"
+KING_PASSWORD="${KING_PASSWORD:-$(gen_password)}"
+NERO_PASSWORD="${NERO_PASSWORD:-$(gen_password)}"
+
 echo -e "${CYAN}📦 Enter a new CTID (100–250):${RESET} "
 read -r CTID
 
@@ -77,7 +86,7 @@ CREATE_OUTPUT=$(pct create "$CTID" "$TEMPLATE_DIR/$TEMPLATE" \
   -storage "$STORAGE" \
   -hostname "$HOSTNAME" \
   -net0 "name=eth0,ip=$IP/24,gw=${BASE_IP}1,bridge=vmbr0" \
-  -password "REDACTED" \
+  -password "$CT_ROOT_PASSWORD" \
   -cores 2 \
   -memory 2048 \
   -rootfs "$STORAGE:32" \
@@ -117,6 +126,14 @@ else
   echo "⚠️ setup_users.sh not found. Skipping push."
 fi
 
+  # Hand the generated user passwords to setup_users.sh, which runs
+  # non-interactively on first login. first_login.sh deletes this afterwards.
+  CRED_FILE=$(mktemp)
+  chmod 600 "$CRED_FILE"
+  printf 'KING_PASSWORD=%q\nNERO_PASSWORD=%q\n' "$KING_PASSWORD" "$NERO_PASSWORD" > "$CRED_FILE"
+  pct push $CTID "$CRED_FILE" /root/.ct_credentials -perms 0600
+  rm -f "$CRED_FILE"
+
 
   # Push keys
 #  pct push $CTID first_login.sh /etc/profile.d/first_login.sh
@@ -137,4 +154,11 @@ fi
 else
   echo "⚠️ Skipping container start. You must start CT$CTID manually and run /root/first_run.sh inside it to complete setup."
 fi
+
+echo
+echo -e "${YELLOW}🔑 Save these now — they are not stored anywhere and will not be shown again:${RESET}"
+echo -e "   CT${CTID} root : ${CT_ROOT_PASSWORD}"
+echo -e "   king           : ${KING_PASSWORD}"
+echo -e "   nero           : ${NERO_PASSWORD}"
+echo
 

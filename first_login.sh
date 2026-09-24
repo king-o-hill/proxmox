@@ -19,6 +19,7 @@ if [ ! -f "$SENTINEL" ]; then
 # Remove this script from future logins
   rm -f /etc/profile.d/first_login.sh
   rm -f /root/setup_users.sh
+  rm -f /root/.ct_credentials
 sleep 5
 fi
 
