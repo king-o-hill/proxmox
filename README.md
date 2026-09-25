@@ -13,6 +13,7 @@ Automate the creation and provisioning of LXC containers on a Proxmox VE host. T
 | `destroyct.sh`        | Prompts for CTID to destroy the container and delete unneeded elements |
 | `first_run.sh`        | Clones the repo to give commands necessary to run |
 | `setup_users.sh`      | Installs system updates and creates `king` and `nero` users with passwordless sudo, SSH key login, and disables password/root SSH access |
+| `media/`              | Unrelated to container creation: scripts for encoding media to a direct-play format for Jellyfin/Plex. See [`media/README.md`](media/README.md) |
 
 ---
 
