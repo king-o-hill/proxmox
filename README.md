@@ -13,6 +13,7 @@ Automate the creation and provisioning of LXC containers on a Proxmox VE host. T
 | `destroyct.sh`        | Prompts for CTID to destroy the container and delete unneeded elements |
 | `first_run.sh`        | Clones the repo to give commands necessary to run |
 | `setup_users.sh`      | Installs system updates and creates `king` and `nero` users with passwordless sudo, SSH key login, and disables password/root SSH access |
+| `media/`              | Unrelated to container creation: scripts for encoding media to a direct-play format for Jellyfin/Plex. See [`media/README.md`](media/README.md) |
 
 ---
 
@@ -74,7 +75,7 @@ The script will:
 
     Then install:
 
-        Users king (password: REDACTED) and nero (password: REDACTED)
+        Users king and nero, each with a randomly generated password
 
         Passwordless sudo access
 
@@ -85,9 +86,23 @@ The script will:
         Run apt update, upgrade, and install curl, git
 
 👥 Users Created Inside Container
-User	Password	Sudo Access	SSH Login	Passwordless
-king	REDACTED	✅ Yes	✅ Key only	✅
-nero	REDACTED	❌ No	❌ Not provisioned with key	✅
+
+| User | Password | Sudo Access | SSH Login | Passwordless |
+|------|----------|-------------|-----------|--------------|
+| king | generated per container | ✅ Yes | ✅ Key only | ✅ |
+| nero | generated per container | ❌ No | ❌ Not provisioned with key | ✅ |
+
+🔑 Passwords
+
+The container root password and both user passwords are generated randomly for
+each container and printed **once**, at the end of the `newct` run. They are not
+stored on disk or committed anywhere — record them when they are displayed.
+
+To set them yourself instead, export them before running:
+
+```bash
+CT_ROOT_PASSWORD='...' KING_PASSWORD='...' NERO_PASSWORD='...' newct
+```
 
 SSH access is restricted to key-based login only. You must log in as king using the SSH key fetched from GitHub.
 🔐 SSH Security Defaults
